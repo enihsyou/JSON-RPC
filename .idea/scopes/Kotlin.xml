@@ -1,0 +1,3 @@
+<component name="DependencyValidationManager">
+  <scope name="Kotlin" pattern="con.enihsyou.*" />
+</component>
