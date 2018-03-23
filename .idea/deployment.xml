@@ -2,6 +2,14 @@
 <project version="4">
   <component name="PublishConfigData" stopOnFirstError="true" overwriteAll="false" createEmptyFolders="true">
     <serverData>
+      <paths name="123.206.214.219 hjy">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$/demo" web="/" />
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="Aliyun 1G2M 47.100.124.23">
         <serverdata>
           <mappings>
