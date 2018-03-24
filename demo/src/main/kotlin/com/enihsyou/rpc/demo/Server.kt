@@ -1,6 +1,9 @@
 package com.enihsyou.rpc.demo
 
 import com.enihsyou.rpc.server.JsonRpcServer
+import kotlinx.coroutines.experimental.launch
+import org.slf4j.LoggerFactory
+import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.nio.channels.SelectionKey
@@ -9,17 +12,22 @@ import java.nio.channels.ServerSocketChannel
 import java.nio.channels.SocketChannel
 import kotlin.concurrent.thread
 
-class Server {
-    private val service: Any = SimpleAddService()
+class Server(port: Int = 20001) {
+    private val logger = LoggerFactory.getLogger(this::class.java)
+
+    private val service = BankServiceImpl()
     private val server: JsonRpcServer = JsonRpcServer(service)
 
     init {
         val selector = Selector.open()
+        val listenAddress = InetSocketAddress(InetAddress.getLocalHost(), port)
         val socketChannel = ServerSocketChannel.open()
-        val listenAddress = InetSocketAddress(20001)
-        socketChannel.bind(listenAddress).configureBlocking(false)
-        println("Server listening on ${socketChannel.localAddress}")
-        socketChannel.register(selector, socketChannel.validOps(), null)
+        socketChannel
+            .bind(listenAddress)
+            .configureBlocking(false)
+            .register(selector, socketChannel.validOps(), null)
+        logger.info("Server is listening on ${socketChannel.localAddress}")
+
         thread {
             while (true) {
                 selector.select()
@@ -43,14 +51,16 @@ class Server {
                             client.read(buffer)
                             val request = String(buffer.array()).trim(0.toChar())
                             println("received $request")
-
-                            handleRequest(request, client)
-                            client.close()
+                            launch {
+                                logger.debug(this.coroutineContext.toString())
+                                handleRequest(request, client)
+                                client.close()
+                            }
                         }
                     }
                 }
             }
-        }
+        }.join()
     }
 
     private fun sendResponse(message: String, socketChannel: SocketChannel) {
@@ -69,3 +79,4 @@ class Server {
 fun main(args: Array<String>) {
     Server()
 }
+

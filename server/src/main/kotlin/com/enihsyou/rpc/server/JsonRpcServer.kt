@@ -61,7 +61,7 @@ class JsonRpcServer(service: Any) {
         return try {
             handleSingle(request, service)
         } catch (e: Exception) {
-            println(e::class.qualifiedName)
+            e.printStackTrace()
             handleError(request, e)
         }
     }

@@ -3,8 +3,19 @@ dependencies {
     implementation project(":server")
     implementation project(":core")
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:0.22.5'
+    implementation "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
     implementation group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.9.4'
+    implementation "com.fasterxml.jackson.module:jackson-module-kotlin:2.9.+"
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:0.22.5'
+
+    implementation group: 'org.slf4j', name: 'slf4j-api', version: '1.8.0-beta1'
+    //     runtime group: 'org.slf4j', name: 'slf4j-log4j12', version: '1.8.0-beta1'
+    runtimeOnly group: 'org.slf4j', name: 'slf4j-simple', version: '1.8.0-beta1'
+
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.1.0")
+    testImplementation 'org.assertj:assertj-core:3.9.0'
+
+    testRuntime("org.junit.jupiter:junit-jupiter-engine:5.1.0")
 }
 kotlin {
     experimental {
