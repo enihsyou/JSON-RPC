@@ -47,11 +47,7 @@ object Reflections {
 
             /*保存到可调用列表中*/
             it.isAccessible = true
-            methodMetadata[rpcFunctionName] = MethodMetadata(
-                rpcFunctionName,
-                it,
-                rpcFunctionParams
-            )
+            methodMetadata[rpcFunctionName] = MethodMetadata(rpcFunctionName, it, rpcFunctionParams)
                 .also { logger.debug("Add {} to {} RPC list, params: {}", it.name, clazz.simpleName, it.parameters) }
         }
 
@@ -67,8 +63,9 @@ object Reflections {
         function.parameters.forEach { it ->
             val rpcParameterName = it.name ?: it.toString()
             val rpcParameterType = it.type
+            val rpcParameterKind = it.kind
             parametersMetadata[rpcParameterName] =
-                ParameterMetadata(rpcParameterName, rpcParameterType, it.index)
+                ParameterMetadata(rpcParameterName, rpcParameterType, rpcParameterKind, it.index)
         }
         return parametersMetadata
     }

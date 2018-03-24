@@ -1,7 +1,5 @@
 package com.enihsyou.rpc.server
 
-import org.assertj.core.api.Assertions.assertThat
-
 import org.junit.jupiter.api.Test
 
 internal class JsonRpcServerTest {
@@ -15,7 +13,13 @@ internal class JsonRpcServerTest {
         val response =
             server.handle(request, service)
         println(response)
-        assertThat(response)
-            .isNotBlank()
+    }
+    @Test
+    fun handle2() {
+        //language=JSON
+        val request = "{\n  \"method\": \"subtract\",\n  \"params\": {\n    \"a\": 1,\n    \"b\": 2\n  }\n}"
+        val response =
+            server.handle(request, service)
+        println(response)
     }
 }

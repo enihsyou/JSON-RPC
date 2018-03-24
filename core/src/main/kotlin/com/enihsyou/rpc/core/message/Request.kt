@@ -1,7 +1,6 @@
 package com.enihsyou.rpc.core.message
 
 import com.fasterxml.jackson.annotation.JsonProperty
-import com.fasterxml.jackson.databind.node.ObjectNode
 
 open class Request(
 
@@ -10,5 +9,5 @@ open class Request(
 
     /**限定为参数名和参数值的形式*/
     @JsonProperty("params")
-    val params: ObjectNode
+    val params: Map<String, Any>
 )

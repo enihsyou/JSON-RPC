@@ -1,0 +1,13 @@
+dependencies {
+    implementation project(':client')
+    implementation project(":server")
+    implementation project(":core")
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:0.22.5'
+    implementation group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.9.4'
+}
+kotlin {
+    experimental {
+        coroutines "enable"
+}
+}
