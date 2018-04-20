@@ -1,0 +1,5 @@
+rootProject.name = 'json_rpc'
+include 'server'
+include 'client'
+include 'core'
+include 'demo'
