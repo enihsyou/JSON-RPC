@@ -4,6 +4,7 @@ import java.io.Serializable
 import java.math.BigDecimal
 import java.rmi.Remote
 import java.rmi.RemoteException
+import java.rmi.server.UnicastRemoteObject
 import java.util.*
 
 private typealias Username = String
@@ -23,7 +24,6 @@ data class LoginVO(
     val token: Token
 ) : Serializable
 
-/*使用UUID会遇到java.lang.String cannot be cast to java.util.UUID问题，使用String绕过*/
 interface BankService : Remote {
 
     @Throws(RemoteException::class)
@@ -45,7 +45,7 @@ interface BankService : Remote {
     fun transfer(token: Token, amount: Money, to: Username)
 }
 
-internal class BankServiceImpl : BankService {
+class BankServiceImpl: UnicastRemoteObject(), BankService {
 
     private val users = mutableListOf<User>()
 

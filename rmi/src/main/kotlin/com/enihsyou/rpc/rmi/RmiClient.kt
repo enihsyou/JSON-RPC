@@ -1,8 +1,13 @@
 package com.enihsyou.rpc.rmi
 
+import org.apache.zookeeper.Watcher
+import org.apache.zookeeper.ZooKeeper
+import org.slf4j.LoggerFactory
 import java.math.BigDecimal
-import java.rmi.registry.LocateRegistry
+import java.rmi.Naming
+import java.rmi.Remote
 import java.util.*
+import java.util.concurrent.CountDownLatch
 import kotlin.reflect.KFunction1
 import kotlin.reflect.jvm.isAccessible
 import kotlin.system.exitProcess
@@ -195,10 +200,61 @@ class Bank(private val service: BankService) {
     }
 }
 
+class ServiceConsumer {
+
+    // 用于等待 SyncConnected 事件触发后继续执行当前线程
+    private val latch = CountDownLatch(1)
+
+    // 定义一个 volatile 成员变量，用于保存最新的 RMI 地址（考虑到该变量或许会被其它线程所修改，一旦修改后，该变量的值会影响到所有线程）
+    @Volatile
+    private var urlList: List<String> = ArrayList()
+
+    // 构造器
+    init {
+        // 连接 ZooKeeper 服务器并获取 ZooKeeper 对象
+        val zk = connectServer(ZkConstant.ZK_CONNECTION_STRING, ZkConstant.ZK_SESSION_TIMEOUT)
+        // 观察 /registry 节点的所有子节点并更新 urlList 成员变量
+        watchNode(zk)
+    }
+
+    // 查找 RMI 服务
+    fun <T : Remote> lookup(): T = urlList.shuffled().first().let { lookupService(it) }
+
+    // 连接 ZooKeeper 服务器
+    private fun connectServer(zkServer: String, zkTimeout: Int): ZooKeeper =
+        ZooKeeper(zkServer, zkTimeout) { if (it.state == Watcher.Event.KeeperState.SyncConnected) latch.countDown() }
+            .apply { latch.await().also { LOGGER.debug("ZooKeeper connected (sessionId: {})", sessionId) } }
+
+    // 观察 /registry 节点下所有子节点是否有变化
+    private fun watchNode(zk: ZooKeeper) {
+
+        val nodeList = zk
+            // 若子节点有变化，则重新调用该方法（为了获取最新子节点中的数据）
+            .getChildren(ZkConstant.ZK_REGISTRY_PATH) {
+                if (it.type == Watcher.Event.EventType.NodeChildrenChanged) watchNode(zk)
+            }
+        val dataList = nodeList
+            .asSequence()
+            .map {
+                zk.getData(ZkConstant.ZK_REGISTRY_PATH + "/" + it, false, null) // 获取 /registry 的子节点中的数据
+            }
+            .map { String(it) }
+            .toList() // 用于存放 /registry 所有子节点中的数据
+        LOGGER.debug("node data: {}", dataList)
+        urlList = dataList // 更新最新的 RMI 地址
+    }
+
+    // 在 JNDI 中查找 RMI 远程服务对象
+    private fun <T : Remote> lookupService(url: String): T = Naming.lookup(url) as T
+
+    companion object {
+
+        private val LOGGER = LoggerFactory.getLogger(ServiceConsumer::class.java)
+    }
+}
+
 fun main(args: Array<String>) {
-    //    val host = if (args.isEmpty()) null else args[0]
-    val host = "192.168.0.100"
-    val registry = LocateRegistry.getRegistry(host)
-    val stub = registry.lookup("BankService") as BankService
-    Bank(stub)
+    val consumer = ServiceConsumer()
+    val bankService = consumer.lookup<BankService>()
+    Bank(bankService)
 }
