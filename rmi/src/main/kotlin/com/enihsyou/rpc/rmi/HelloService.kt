@@ -5,6 +5,8 @@ import java.math.BigDecimal
 import java.rmi.Remote
 import java.rmi.RemoteException
 import java.rmi.server.UnicastRemoteObject
+import java.sql.Connection
+import java.sql.DriverManager
 import java.util.*
 
 private typealias Username = String
@@ -20,8 +22,7 @@ data class User(
 
 data class LoginVO(
     val username: Username,
-    val money: Money,
-    val token: Token
+    val money: Money
 ) : Serializable
 
 interface BankService : Remote {
@@ -33,76 +34,119 @@ interface BankService : Remote {
     fun register(username: Username, password: Password)
 
     @Throws(RemoteException::class)
-    fun check(token: Token): Money
+    fun check(username: String, password: String): Money
 
     @Throws(RemoteException::class)
-    fun deposit(token: Token, amount: Money)
+    fun deposit(username: String, password: String, amount: Money)
 
     @Throws(RemoteException::class)
-    fun withdraw(token: Token, amount: Money)
+    fun withdraw(username: String, password: String, amount: Money)
 
     @Throws(RemoteException::class)
-    fun transfer(token: Token, amount: Money, to: Username)
+    fun transfer(username: String, password: String, amount: Money, to: Username)
 }
 
-class BankServiceImpl: UnicastRemoteObject(), BankService {
+class BankServiceImpl : UnicastRemoteObject(), BankService {
+    private val connection by lazy { connect() }
 
-    private val users = mutableListOf<User>()
+    private fun connect(): Connection {
+        val props = Properties().apply {
+            put("user", "root")
+            put("password", "enihsyou")
+        }
 
-    private val loginCredential = mutableMapOf<Token, User>()
+        return DriverManager.getConnection("jdbc:mysql://192.168.0.100:3306?useSSL=false", props)
+    }
+
+    private fun queryUser(username: Username): User? {
+        val statement = connection
+            .prepareStatement("SELECT * FROM rmi.user WHERE username=?")
+            .apply {
+                setString(1, username)
+            }
+
+        val resultSet = statement.executeQuery()
+        if (resultSet.next()) {
+            val _username = resultSet.getString("username")
+            val _password = resultSet.getString("password")
+            val _money = resultSet.getBigDecimal("money")
+            return User(_username, _password, _money)
+        }
+        return null
+    }
+
+    private fun createUser(username: Username, password: Password) {
+        val statement = connection
+            .prepareStatement("INSERT INTO rmi.user (username, password) VALUES (?,?);")
+            .apply {
+                setString(1, username)
+                setString(2, password)
+            }
+
+        val resultSet = statement.executeUpdate()
+        if (resultSet != 1) throw UserExistException(username)
+    }
+
+    private fun updateMoney(username: Username, money: Money) {
+        val statement = connection
+            .prepareStatement("UPDATE rmi.user SET money=? WHERE username=?")
+            .apply {
+                setBigDecimal(1, money)
+                setString(2, username)
+            }
+
+        val resultSet = statement.executeUpdate()
+        if (resultSet != 1) throw UserShouldExistException(username)
+    }
 
     override fun login(username: String, password: String): LoginVO {
         debug { "[login] username: $username, password: $password" }
-        val user = findUser(username) ?: throw UserShouldExistException(username)
-
-        if (user.password != password) throw CredentialException(username)
-
-        val key = UUID.randomUUID()
-        loginCredential[key] = user
-        debug { "[login] username: $username success token: $key" }
-        return LoginVO(user.username, user.money, key)
+        val user = loggedUser(username, password)
+        return LoginVO(user.username, user.money)
     }
 
     override fun register(username: String, password: String) {
         debug { "[register] username: $username, password: $password" }
-        findUser(username)?.run { throw UserExistException(username) }
-        users += User(username, password, BigDecimal.ZERO)
+        queryUser(username)?.run { throw UserExistException(username) }
+        createUser(username, password)
     }
 
-    override fun check(token: Token): Money =
-        loggedUser(token)
+    override fun check(username: String, password: String): Money =
+        loggedUser(username, password)
             .also { debug { "[check] username: ${it.username}, money: ${it.money}" } }.money
 
-    override fun deposit(token: Token, amount: Money) =
-        loggedUser(token)
+    override fun deposit(username: String, password: String, amount: Money) =
+        loggedUser(username, password)
             .also { debug { "[deposit] username: ${it.username}, amount: $amount" } }
             .run { deposit(this, amount) }
 
-    override fun withdraw(token: Token, amount: Money) =
-        loggedUser(token)
+    override fun withdraw(username: String, password: String, amount: Money) =
+        loggedUser(username, password)
             .also { debug { "[withdraw] username: ${it.username}, money: ${it.money}, amount: $amount" } }
             .run { withdraw(this, amount) }
 
-    override fun transfer(token: Token, amount: Money, to: Username) {
-        val user = loggedUser(token)
-        val userTo = findUser(to) ?: throw UserShouldExistException(to)
+    override fun transfer(username: String, password: String, amount: Money, to: Username) {
+        val user = loggedUser(username, password)
+        val userTo = queryUser(to) ?: throw UserShouldExistException(to)
         debug { "[deposit] from: ${user.username}, to: ${userTo.username}, amount: $amount" }
 
         withdraw(user, amount)
         deposit(userTo, amount)
     }
 
-    private fun findUser(username: String) = users.find { it.username == username }
-
-    private fun loggedUser(token: Token) = loginCredential[token] ?: throw NeedCredentialException()
+    private fun loggedUser(username: String, password: String): User {
+        val user = queryUser(username) ?: throw UserShouldExistException(username)
+        if (user.password != password) throw CredentialException(username)
+        return user
+    }
 
     private fun deposit(user: User, amount: Money) {
-        user.money += amount
+        updateMoney(user.username, user.money + amount)
     }
 
     private fun withdraw(user: User, amount: Money) {
         if (user.money >= amount) {
-            user.money -= amount
+            updateMoney(user.username, user.money - amount)
         } else throw BalanceException(user, amount)
     }
 }
@@ -114,7 +158,5 @@ class UserExistException(username: Username) : RuntimeException("$username 已�
 class CredentialException(username: String) : RuntimeException("$username 登录失败")
 
 class BalanceException(user: User, amount: Money) : RuntimeException("用户[${user.username}的余额不足以完成一次体量为[$amount]的操作")
-
-class NeedCredentialException : RuntimeException("用户未登录")
 
 private inline fun debug(msg: () -> String) = println(msg())

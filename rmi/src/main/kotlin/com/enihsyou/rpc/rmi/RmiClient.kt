@@ -15,7 +15,7 @@ import kotlin.system.exitProcess
 class Bank(private val service: BankService) {
     private val scanner = Scanner(System.`in`)
     private var username: String? = null
-    private var token: UUID? = null
+    private var password: String? = null
 
     init {
         println("欢迎来到NTM银行！")
@@ -84,13 +84,14 @@ class Bank(private val service: BankService) {
         try {
             val success = service.login(username, password)
             this.username = success.username
-            this.token = success.token
+            this.password = password
             println("登录成功！")
             bankScreen()
         } catch (e: Exception) {
             when (e) {
                 is UserShouldExistException -> println("用户名不存在")
                 is CredentialException      -> println("用户名或密码错误")
+                else                        -> e.printStackTrace()
             }
             splashScreen()
         }
@@ -108,7 +109,7 @@ class Bank(private val service: BankService) {
         } catch (e: Exception) {
             when (e) {
                 is UserExistException -> println(e.message)
-                else                  -> println("用户名重复")
+                else                  -> println("用户名重复").also { e.printStackTrace() }
             }
         } finally {
             splashScreen()
@@ -116,23 +117,22 @@ class Bank(private val service: BankService) {
     }
 
     private fun deposit() {
-        token ?: throw IllegalStateException()
         username ?: throw IllegalStateException()
+        password ?: throw IllegalStateException()
+
         println("请输入存款金额：")
         val amount = userInput<BigDecimal>().takeIf { it.signum() >= 0 } ?: return {
             println("输入存款金额需要个正数")
             bankScreen()
         }()
 
-
-        service.deposit(token!!, amount)
+        service.deposit(username!!, password!!, amount)
         println("操作成功！")
 
         bankScreen()
     }
 
     private fun withdraw() {
-        token ?: throw IllegalStateException()
         username ?: throw IllegalStateException()
         println("请输入取款金额：")
         val amount = userInput<BigDecimal>().takeIf { it.signum() >= 0 } ?: return {
@@ -141,17 +141,21 @@ class Bank(private val service: BankService) {
         }()
 
         try {
-            service.withdraw(token!!, amount)
+            service.withdraw(username!!, password!!, amount)
             println("操作成功！")
-        } catch (e: BalanceException) {
-            println("失败！余额不足")
+        } catch (e: Exception) {
+            when (e) {
+                is BalanceException -> println("失败！余额不足")
+                else                -> e.printStackTrace()
+            }
         }
         bankScreen()
     }
 
     private fun transfer() {
-        token ?: throw IllegalStateException()
         username ?: throw IllegalStateException()
+        password ?: throw IllegalStateException()
+
         println("请输入转账金额")
         val amount = userInput<BigDecimal>().takeIf { it.signum() >= 0 } ?: return {
             println("失败！")
@@ -161,35 +165,35 @@ class Bank(private val service: BankService) {
         println("请输入转给谁")
         val to = userInput<String>()
         try {
-            service.transfer(token!!, amount, to)
+            service.transfer(username!!, password!!, amount, to)
             println("操作成功！")
         } catch (e: Exception) {
             when (e) {
                 is BalanceException         -> println(e.message)
                 is UserShouldExistException -> println(e.message)
-                else                        -> println("失败！")
+                else                        -> println("失败！").also { e.printStackTrace() }
             }
         }
         bankScreen()
     }
 
     private fun check() {
-        token ?: throw IllegalStateException()
         username ?: throw IllegalStateException()
+        password ?: throw IllegalStateException()
 
         fun showAmountMessage(amount: BigDecimal) {
             println("用户${username}当前余额为￥$amount")
         }
 
-        val money = service.check(token!!)
+        val money = service.check(username!!, password!!)
         showAmountMessage(money)
 
         bankScreen()
     }
 
     private fun logout() {
-        token = null
         username = null
+        password = null
         println("登出成功！")
         splashScreen()
     }

@@ -13,7 +13,7 @@ import java.util.concurrent.CountDownLatch
 
 /*https://my.oschina.net/huangyong/blog/345164*/
 fun main(args: Array<String>) {
-    val host = "localhost"
+    val host = "192.168.0.100"
     val port = 1099 + Random().nextInt(1000)
     val service = "com.enihsyou.rpc.rmi.BankService"
     val rmiUrl = "rmi://$host:$port/$service"
@@ -22,14 +22,6 @@ fun main(args: Array<String>) {
     provider.publish(BankServiceImpl(), host, port, rmiUrl)
 
     System.err.println("RmiServer ready")
-}
-
-object ZkConstant {
-
-    const val ZK_CONNECTION_STRING = "localhost:2181"
-    const val ZK_SESSION_TIMEOUT = 5000
-    const val ZK_REGISTRY_PATH = "/registry"
-    const val ZK_PROVIDER_PATH = "$ZK_REGISTRY_PATH/provider"
 }
 
 class ServiceProvider {
