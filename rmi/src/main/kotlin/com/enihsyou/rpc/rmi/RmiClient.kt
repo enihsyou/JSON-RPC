@@ -4,13 +4,21 @@ import org.apache.zookeeper.Watcher
 import org.apache.zookeeper.ZooKeeper
 import org.slf4j.LoggerFactory
 import java.math.BigDecimal
-import java.rmi.Naming
+import java.math.RoundingMode
+import java.net.URI
 import java.rmi.Remote
+import java.rmi.registry.LocateRegistry
 import java.util.*
 import java.util.concurrent.CountDownLatch
 import kotlin.reflect.KFunction1
 import kotlin.reflect.jvm.isAccessible
 import kotlin.system.exitProcess
+
+fun main(args: Array<String>) {
+    val consumer = ServiceConsumer()
+    val bankService = consumer.lookup<BankService>()
+    Bank(bankService)
+}
 
 class Bank(private val service: BankService) {
     private val scanner = Scanner(System.`in`)
@@ -182,7 +190,7 @@ class Bank(private val service: BankService) {
         password ?: throw IllegalStateException()
 
         fun showAmountMessage(amount: BigDecimal) {
-            println("用户${username}当前余额为￥$amount")
+            println("用户${username}当前余额为￥${amount.setScale(2, RoundingMode.DOWN)}")
         }
 
         val money = service.check(username!!, password!!)
@@ -249,16 +257,15 @@ class ServiceConsumer {
     }
 
     // 在 JNDI 中查找 RMI 远程服务对象
-    private fun <T : Remote> lookupService(url: String): T = Naming.lookup(url) as T
+    private fun <T : Remote> lookupService(rmiUrl: String): T {
+        val host = URI.create(rmiUrl).host
+        val port = RmiConstant.Rmi_CONNECTION_PORT
+        LOGGER.debug("Get Proxy from $host:$port")
+        return LocateRegistry.getRegistry(host, port).lookup(rmiUrl) as T
+    }
 
     companion object {
 
         private val LOGGER = LoggerFactory.getLogger(ServiceConsumer::class.java)
     }
-}
-
-fun main(args: Array<String>) {
-    val consumer = ServiceConsumer()
-    val bankService = consumer.lookup<BankService>()
-    Bank(bankService)
 }
